@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 )
 
@@ -59,11 +58,6 @@ type TransferTxResults struct {
 	ToEntry     Entry    `json:"to_entry"`
 }
 
-func (tr *TransferTxResults) String() string {
-	s, _ := json.MarshalIndent(tr, "=========\n", "   ")
-	return string(s)
-}
-
 // TransferTx which does following 1.) creates 1 transfer record 2.) Two individual account entries 3.) deduct / add money in account records
 func (s *Store) TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResults, error) {
 
@@ -99,28 +93,18 @@ func (s *Store) TransferTx(ctx context.Context, arg TransferTxParams) (TransferT
 			return err
 		}
 
-		fromAccount, err := q.GetAccountForUpdate(ctx, arg.FromAccountId)
-		if err != nil {
-			return err
-		}
-
-		r.FromAccount, err = q.UpdateAccount(ctx, UpdateAccountParams{
-			ID:      fromAccount.ID,
-			Balance: fromAccount.Balance - arg.Amount,
+		r.FromAccount, err = q.AddAccountBalance(ctx, AddAccountBalanceParams{
+			Amount: -arg.Amount,
+			ID:     arg.FromAccountId,
 		})
 
 		if err != nil {
 			return err
 		}
 
-		toAccount, err := q.GetAccountForUpdate(ctx, arg.ToAccountId)
-		if err != nil {
-			return err
-		}
-
-		r.ToAccount, err = q.UpdateAccount(ctx, UpdateAccountParams{
-			ID:      toAccount.ID,
-			Balance: toAccount.Balance + arg.Amount,
+		r.ToAccount, err = q.AddAccountBalance(ctx, AddAccountBalanceParams{
+			Amount: arg.Amount,
+			ID:     arg.ToAccountId,
 		})
 
 		if err != nil {
