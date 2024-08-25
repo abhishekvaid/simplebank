@@ -8,7 +8,12 @@ RETURNING *;
 
 -- name: GetAccount :one
 SELECT * FROM accounts 
-WHERE id = $1 LIMIT 1; 
+WHERE id = $1 LIMIT 1 ; 
+
+-- name: GetAccountForUpdate :one
+SELECT * FROM accounts 
+WHERE id = $1 LIMIT 1
+FOR NO KEY UPDATE ; 
 
 -- name: GetAccounts :many
 SELECT * FROM accounts

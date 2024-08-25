@@ -13,7 +13,7 @@ migrateup:
 	migrate -path=db/migration -database="$(DB_URL)" up 
 
 migratedown:
-	migrate -path=db/migration -database="$(DB_URL)" down
+	 echo "y" | migrate -path=db/migration -database="$(DB_URL)" down
 
 sqlc: 
 	sqlc generate 

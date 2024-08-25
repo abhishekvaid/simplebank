@@ -18,13 +18,18 @@ func NewStore(db *sql.DB) *Store {
 	}
 }
 
+var txKey = struct{}{}
+
 // This function creates exactly 1 transaction and passes that into the callback function
-func (s *Store) execTx(ctx context.Context, fn func(*Queries) error) error {
+func (s *Store) execTx(ctx context.Context, callback func(*Queries) error) error {
 	tx, err := s.db.BeginTx(ctx, nil)
+
 	if err != nil {
 		return err
 	}
-	qErr := fn(New(tx))
+
+	qErr := callback(New(tx))
+
 	if qErr != nil {
 		rbErr := tx.Rollback()
 		if rbErr != nil {
@@ -32,12 +37,8 @@ func (s *Store) execTx(ctx context.Context, fn func(*Queries) error) error {
 		}
 		return qErr
 	}
-	cmErr := tx.Commit()
-	if cmErr != nil {
-		return cmErr
-	}
 
-	return nil
+	return tx.Commit()
 }
 
 type TransferTxParams struct {
@@ -55,38 +56,87 @@ type TransferTxResults struct {
 }
 
 // TransferTx which does following 1.) creates 1 transfer record 2.) Two individual account entries 3.) deduct / add money in account records
-func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResults, error) {
+func (s *Store) TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResults, error) {
 
 	var r TransferTxResults
-	var err error
 
-	err = store.execTx(ctx, func(q *Queries) error {
+	tx, err := s.db.BeginTx(ctx, nil)
 
-		r.Transfer, err = q.CreateTransfer(ctx, CreateTransferParams{
-			FromAccountID: arg.FromAccountId,
-			ToAccountID:   arg.ToAccountId,
-			Amount:        arg.Amount,
-		})
-		if err != nil {
-			return err
-		}
-		r.FromEntry, err = q.CreateEntry(ctx, CreateEntryParams{
-			AccountID: arg.FromAccountId,
-			Amount:    -1.0 * arg.Amount,
-		})
-		if err != nil {
-			return err
-		}
-		r.ToEntry, err = q.CreateEntry(ctx, CreateEntryParams{
-			AccountID: arg.ToAccountId,
-			Amount:    arg.Amount,
-		})
-		if err != nil {
-			return err
-		}
-		// Implement changes to individual accounts later
-		return nil
+	if err != nil {
+		tx.Rollback()
+		return r, err
+	}
+
+	q := New(tx)
+
+	txName := ctx.Value(txKey)
+
+	r.Transfer, err = q.CreateTransfer(ctx, CreateTransferParams{
+		FromAccountID: arg.FromAccountId,
+		ToAccountID:   arg.ToAccountId,
+		Amount:        arg.Amount,
 	})
+	if err != nil {
+		tx.Rollback()
+		return r, err
+	}
+
+	r.FromEntry, err = q.CreateEntry(ctx, CreateEntryParams{
+		AccountID: arg.FromAccountId,
+		Amount:    -1.0 * arg.Amount,
+	})
+	if err != nil {
+		return r, err
+	}
+
+	r.ToEntry, err = q.CreateEntry(ctx, CreateEntryParams{
+		AccountID: arg.ToAccountId,
+		Amount:    arg.Amount,
+	})
+	if err != nil {
+		tx.Rollback()
+		return r, err
+	}
+
+	fromAccount, err := q.GetAccountForUpdate(ctx, arg.FromAccountId)
+	if err != nil {
+		tx.Rollback()
+		return r, err
+	}
+	fmt.Printf("[%s]: From GetAccount : (%d)  \n", txName, fromAccount.Balance)
+
+	r.FromAccount, err = q.UpdateAccount(ctx, UpdateAccountParams{
+		ID:      fromAccount.ID,
+		Balance: fromAccount.Balance - arg.Amount,
+	})
+
+	fmt.Printf("[%s]: From UpdateAccount : (%d)  \n", txName, r.FromAccount.Balance)
+
+	if err != nil {
+		tx.Rollback()
+		return r, err
+	}
+
+	toAccount, err := q.GetAccountForUpdate(ctx, arg.ToAccountId)
+	if err != nil {
+		return r, err
+	}
+
+	fmt.Printf("[%s]: To GetAccount : (%d)  \n", txName, toAccount.Balance)
+
+	r.ToAccount, err = q.UpdateAccount(ctx, UpdateAccountParams{
+		ID:      toAccount.ID,
+		Balance: toAccount.Balance + arg.Amount,
+	})
+
+	fmt.Printf("[%s]: To UpdateAccount : (%d)  \n", txName, r.ToAccount.Balance)
+
+	if err != nil {
+		tx.Rollback()
+		return r, err
+	}
+
+	tx.Commit()
 
 	return r, err
 

@@ -14,7 +14,7 @@ import (
 func createTestAccount(t *testing.T) Account {
 	arg := CreateAccountParams{
 		Owner:    util.RandomOwner(),
-		Balance:  util.RandomBalance(),
+		Balance:  100, // util.RandomBalance(),
 		Currency: util.RandomCurrency(),
 	}
 
