@@ -13,20 +13,20 @@ func TestTransferTx(t *testing.T) {
 
 	s := NewStore(testDB)
 
-	n := 10
+	var n int64 = 10
 	var amount int64 = 10
-	fromAccount := createTestAccount(t)
-	toAccount := createTestAccount(t)
+	fromAccountInitial := createTestAccount(t)
+	toAccountInitial := createTestAccount(t)
 
 	errs := make(chan error)
 	results := make(chan TransferTxResults)
 
-	for i := 0; i < n; i++ {
+	for i := 0; i < int(n); i++ {
 		go func() {
 			txId := fmt.Sprintf("%sTX:%d", strings.Repeat(" ", i*4), i+1)
 			r, err := s.TransferTx(context.WithValue(context.Background(), txKey, txId), TransferTxParams{
-				FromAccountId: fromAccount.ID,
-				ToAccountId:   toAccount.ID,
+				FromAccountId: fromAccountInitial.ID,
+				ToAccountId:   toAccountInitial.ID,
 				Amount:        int64(amount),
 			})
 
@@ -35,72 +35,69 @@ func TestTransferTx(t *testing.T) {
 		}()
 	}
 
-	for i := 0; i < n; i++ {
+	for i := 0; i < int(n); i++ {
 
 		err := <-errs
 		require.NoError(t, err)
 
-		result := <-results
+		r := <-results
 
-		transfer := result.Transfer
+		transfer := r.Transfer
 
 		// Test Transfer Object
 		require.NotEmpty(t, transfer)
 		require.NotEmpty(t, transfer.ID)
 		require.NotEmpty(t, transfer.CreatedAt)
-		require.Equal(t, transfer.FromAccountID, fromAccount.ID)
-		require.Equal(t, transfer.ToAccountID, toAccount.ID)
+		require.Equal(t, transfer.FromAccountID, fromAccountInitial.ID)
+		require.Equal(t, transfer.ToAccountID, toAccountInitial.ID)
 		require.Equal(t, transfer.Amount, amount)
 
-		// Test Entry Object
-		fromEntry := result.FromEntry
+		// Test Entry Objects
+		fromEntry := r.FromEntry
 		require.NotEmpty(t, fromEntry)
 		require.NotEmpty(t, fromEntry.ID)
 		require.NotEmpty(t, fromEntry.CreatedAt)
-		require.Equal(t, fromEntry.AccountID, fromAccount.ID)
+		require.Equal(t, fromEntry.AccountID, fromAccountInitial.ID)
 		require.Equal(t, fromEntry.Amount, -amount)
 
 		fromEntryFromDB, err := s.GetEntry(context.Background(), fromEntry.ID)
 		require.NoError(t, err)
 		require.EqualValues(t, fromEntryFromDB, fromEntry)
 
-		toEntry := result.ToEntry
+		toEntry := r.ToEntry
 		require.NotEmpty(t, toEntry)
 		require.NotEmpty(t, toEntry.ID)
 		require.NotEmpty(t, toEntry.CreatedAt)
-		require.Equal(t, toEntry.AccountID, toAccount.ID)
+		require.Equal(t, toEntry.AccountID, toAccountInitial.ID)
 		require.Equal(t, toEntry.Amount, amount)
 
 		toEntryFromDB, err := s.GetEntry(context.Background(), toEntry.ID)
 		require.NoError(t, err)
 		require.EqualValues(t, toEntryFromDB, toEntry)
 
-		// Test Account Object
+		// Test Account Objects
 
-		fromAccount_ := result.FromAccount
-		require.NotEmpty(t, fromAccount_)
+		require.NotEmpty(t, r.FromAccount)
+		require.NotEmpty(t, r.ToAccount)
 
-		// toAccount_ := result.ToAccount
-		// require.NotEmpty(t, toAccount_)
+		require.Greater(t, fromAccountInitial.Balance, r.FromAccount.Balance)
+		require.Equal(t, (fromAccountInitial.Balance-r.FromAccount.Balance)%amount, int64(0))
+		require.GreaterOrEqual(t, (fromAccountInitial.Balance-r.FromAccount.Balance)/amount, int64(1))
+		require.LessOrEqual(t, (fromAccountInitial.Balance-r.FromAccount.Balance)/amount, n)
 
-		require.True(t, fromAccount.Balance > fromAccount_.Balance)
-		require.Equal(t, (fromAccount.Balance-fromAccount_.Balance)%amount, int64(0))
-		require.LessOrEqual(t, 1, int((fromAccount.Balance-fromAccount_.Balance)/amount))
-		require.LessOrEqual(t, int((fromAccount.Balance-fromAccount_.Balance)/amount), n)
-
-		// require.True(t, toAccount_.Balance > toAccount.Balance)
-		// require.Equal(t, (toAccount_.Balance-toAccount.Balance)%amount, int64(0))
-		// require.LessOrEqual(t, 1, int((toAccount_.Balance-toAccount.Balance)/amount))
-		// require.LessOrEqual(t, int((toAccount_.Balance-toAccount.Balance)/amount), n)
+		require.Less(t, toAccountInitial.Balance, r.ToAccount.Balance)
+		require.Equal(t, (r.ToAccount.Balance-toAccountInitial.Balance)%amount, int64(0))
+		require.GreaterOrEqual(t, (r.ToAccount.Balance-toAccountInitial.Balance)/amount, int64(1))
+		require.LessOrEqual(t, (r.ToAccount.Balance-toAccountInitial.Balance)/amount, n)
 
 	}
 
-	fromAccountFromDB, err := s.GetAccount(context.Background(), fromAccount.ID)
+	fromAccountLive, err := s.GetAccount(context.Background(), fromAccountInitial.ID)
 	require.NoError(t, err)
-	require.Equal(t, -int64(n)*amount, fromAccountFromDB.Balance-fromAccount.Balance)
-	// toAccountFromDB, err := store.GetAccount(context.Background(), toAccount.ID)
-	// require.NoError(t, err)
-	// require.Equal(t, int64(n)*amount, toAccountFromDB.Balance-toAccount.Balance)
-	// require.Equal(t, int64(2*n)*amount, toAccountFromDB.Balance-fromAccountFromDB.Balance)
+	require.Equal(t, -int64(n)*amount, fromAccountLive.Balance-fromAccountInitial.Balance)
+
+	toAccountLive, err := s.GetAccount(context.Background(), toAccountInitial.ID)
+	require.NoError(t, err)
+	require.Equal(t, int64(n)*amount, toAccountLive.Balance-toAccountInitial.Balance)
 
 }
