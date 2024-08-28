@@ -42,7 +42,7 @@ jobs:
     - name: install sqlc-migrate
       run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
       
-    - name: run migration
+    - name: run migrateup
       run: make 
 
     - name: Testing with Make 
