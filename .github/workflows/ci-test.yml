@@ -12,7 +12,24 @@ on:
 jobs:
 
   test:
+
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: secret
+          POSTGRES_USERNAME: root
+          POSTGRES_DATABASE: simple_bank
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
     - name: Checkout Code into runner 
       uses: actions/checkout@v4
@@ -21,6 +38,12 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '^1.22'
+    
+    - name: install sqlc-migrate
+      run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+      
+    - name: run migration
+      run: make 
 
     - name: Testing with Make 
       run: make test
