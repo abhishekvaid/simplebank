@@ -39,11 +39,14 @@ jobs:
       with:
         go-version: '^1.22'
     
-    - name: install sqlc-migrate
-      run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+    - name: install golang-migrate
+      run: |
+        curl -L https://github.com/golang-migrate/migrate/releases/download/4.17.1/migrate.linux-amd64.tar.gz | tar xvz
+        mv migrate.linux-amd64 /usr/bin/migrate
+        make migrateup
       
-    - name: migrateup
-      run: make migrateup
+    - name: sqlc generation
+      run: make sqlc 
 
     - name: Testing with Make 
       run: make test
