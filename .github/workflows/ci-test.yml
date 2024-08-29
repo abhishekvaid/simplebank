@@ -5,14 +5,12 @@ name: ci-test
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
-
   test:
-
     runs-on: ubuntu-latest
 
     services:
@@ -31,22 +29,22 @@ jobs:
           - 5432:5432
 
     steps:
-    - name: Checkout Code into runner 
-      uses: actions/checkout@v4
+      - name: Checkout Code into runner
+        uses: actions/checkout@v4
 
-    - name: Set up Go 1.22
-      uses: actions/setup-go@v4
-      with:
-        go-version: '^1.22'
-    
-    - name: install golang-migrate
-      run: |
-        curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.1/migrate.linux-amd64.tar.gz | tar xvz
-        sudo mv migrate /usr/bin
-        make migrateup
-      
-    - name: sqlc generation
-      run: make sqlc 
+      - name: Set up Go 1.22
+        uses: actions/setup-go@v4
+        with:
+          go-version: "^1.22"
 
-    - name: Testing with Make 
-      run: make test
+      - name: install golang-migrate
+        run: |
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.1/migrate.linux-amd64.tar.gz | tar xvz
+          sudo mv migrate /usr/bin
+          which migrate
+
+      - name: Run migrations
+        run: make migrateup
+
+      - name: Testing with Make
+        run: make test
