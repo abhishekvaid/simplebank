@@ -12,8 +12,11 @@ import (
 )
 
 func createTestAccount(t *testing.T) Account {
+
+	user := createTestUser(t)
+
 	arg := CreateAccountParams{
-		Owner:    util.RandomOwner(),
+		Owner:    user.Username,
 		Balance:  100, // util.RandomBalance(),
 		Currency: util.RandomCurrency(),
 	}
@@ -81,6 +84,27 @@ func TestDeleteAccount(t *testing.T) {
 }
 
 func TestUpdateAccount(t *testing.T) {
+	acc1 := createTestAccount(t)
+
+	arg := UpdateAccountParams{
+		ID:      acc1.ID,
+		Balance: acc1.Balance + 100,
+	}
+
+	acc2, err := testQueries.UpdateAccount(context.Background(), arg)
+
+	require.NoError(t, err)
+	require.NotEmpty(t, acc2)
+
+	require.Equal(t, acc1.Owner, acc2.Owner)
+	require.Equal(t, acc1.Currency, acc2.Currency)
+	require.Equal(t, acc1.Balance+100, acc2.Balance)
+	require.Equal(t, acc1.CreatedAt, acc2.CreatedAt)
+	require.Equal(t, acc1.ID, acc2.ID)
+
+}
+
+func TestAccountToUserForeignKey(t *testing.T) {
 	acc1 := createTestAccount(t)
 
 	arg := UpdateAccountParams{

@@ -15,6 +15,12 @@ migrateup:
 migratedown:
 	 echo "y" | migrate -path=db/migration -database="$(DB_URL)" down
 
+migrateup1:
+	migrate -path=db/migration -database="$(DB_URL)" up 1
+
+migratedown1:
+	 echo "y" | migrate -path=db/migration -database="$(DB_URL)" down 1
+
 sqlc: 
 	sqlc generate 
 
@@ -27,4 +33,4 @@ server:
 mock:
 	mockgen --package mockdb --destination ./db/mock/store.go himavisoft.simple_bank/db/sqlc Store
 
-.PHONY: postgres createdb dropdb migrateup migratedown sqlc test server mock 
+.PHONY: postgres createdb dropdb migrateup migratedown sqlc test server mock migrateup1 migratedown1

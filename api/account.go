@@ -2,11 +2,13 @@ package api
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	db "himavisoft.simple_bank/db/sqlc"
 
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
 
@@ -90,6 +92,15 @@ func (s *Server) CreateAccount(ctx *gin.Context) {
 
 	account, err := s.store.CreateAccount(ctx, arg)
 	if err != nil {
+		// Make changes here since accounts now depend on user
+		switch err.(*pq.Error).Code.Name() {
+		case "foreign_key_violation":
+			ctx.JSON(http.StatusBadRequest, errorResponse(fmt.Errorf("account with owner=%v can't be created since owner with username doesn't exist", arg.Owner)))
+			return
+		case "unique_violation":
+			ctx.JSON(http.StatusBadRequest, errorResponse(fmt.Errorf("account with owner=%v already exists with currency=%v", arg.Owner, arg.Currency)))
+			return
+		}
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}

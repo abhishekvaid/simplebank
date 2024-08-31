@@ -21,13 +21,16 @@ func NewServer(store db.Store) (server *Server) {
 		v.RegisterValidation("currency", validCurrency)
 	}
 
-	// accounts specific handler bindings
+	// routes for accounts
 	router.POST("/accounts", server.CreateAccount)
 	router.GET("/accounts/:id", server.GeAccount)
 	router.GET("/accounts", server.GeAccounts)
 
-	// routes for transfers object
+	// routes for transfers
 	router.POST("/transfers", server.TransferAmount)
+
+	// routes for users
+	router.POST("/users", server.CreateUser)
 
 	server.router = router
 
