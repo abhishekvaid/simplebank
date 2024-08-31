@@ -2,21 +2,27 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 
 	"himavisoft.simple_bank/api"
 	db "himavisoft.simple_bank/db/sqlc"
-)
+	"himavisoft.simple_bank/util"
 
-var (
-	driverName string = "postgres"
-	dataSource string = "postgres://root:secret@localhost:5432/simple_bank?sslmode=disable"
-	address    string = "localhost:8081"
+	_ "github.com/lib/pq"
 )
 
 func main() {
 
-	conn, err := sql.Open(driverName, dataSource)
+	config, err := util.LoadConfig("./")
+
+	fmt.Println(config)
+
+	if err != nil {
+		log.Fatal("can't read config. exiting ...", err)
+	}
+
+	conn, err := sql.Open(config.DBDriver, config.DBSource)
 	if err != nil {
 		log.Fatal("Can't connect to DB, exiting ...", err)
 	}
@@ -25,6 +31,6 @@ func main() {
 
 	server := api.NewServer(store)
 
-	server.Start(address)
+	server.Start(config.ServerAddress)
 
 }

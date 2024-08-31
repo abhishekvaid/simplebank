@@ -72,7 +72,7 @@ func (s *Server) CreateAccount(ctx *gin.Context) {
 
 	type CreateContextParams struct {
 		Owner    string `json:"owner" binding:"required"`
-		Currency string `json:"currency" binding:"required,oneof=USD CAD INR"`
+		Currency string `json:"currency" binding:"required,currency"`
 	}
 
 	var reqDto CreateContextParams

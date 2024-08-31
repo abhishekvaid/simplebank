@@ -6,13 +6,18 @@ import (
 	"fmt"
 )
 
-type Store struct {
+type Store interface {
+	Querier
+	TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResults, error)
+}
+
+type SQLStore struct {
 	*Queries
 	db *sql.DB
 }
 
-func NewStore(db *sql.DB) *Store {
-	return &Store{
+func NewStore(db *sql.DB) *SQLStore {
+	return &SQLStore{
 		Queries: New(db),
 		db:      db,
 	}
@@ -21,7 +26,7 @@ func NewStore(db *sql.DB) *Store {
 var txKey = struct{}{}
 
 // This function creates exactly 1 transaction and passes that into the callback function
-func (s *Store) execTx(ctx context.Context, callback func(*Queries) error) error {
+func (s *SQLStore) execTx(ctx context.Context, callback func(*Queries) error) error {
 
 	tx, err := s.db.BeginTx(ctx, nil)
 
@@ -59,7 +64,7 @@ type TransferTxResults struct {
 }
 
 // TransferTx which does following 1.) creates 1 transfer record 2.) Two individual account entries 3.) deduct / add money in account records
-func (s *Store) TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResults, error) {
+func (s *SQLStore) TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResults, error) {
 
 	var r TransferTxResults
 
@@ -116,7 +121,6 @@ func (s *Store) TransferTx(ctx context.Context, arg TransferTxParams) (TransferT
 	})
 
 	return r, err
-
 }
 
 func addAccountBalanceHelper(ctx context.Context, q *Queries, accId, amount int64) (acc Account, err error) {

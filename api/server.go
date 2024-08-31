@@ -2,21 +2,32 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
 	db "himavisoft.simple_bank/db/sqlc"
 )
 
 type Server struct {
-	store  *db.Store
+	store  db.Store
 	router *gin.Engine
 }
 
-func NewServer(store *db.Store) (server *Server) {
+func NewServer(store db.Store) (server *Server) {
+
 	server = &Server{store: store}
 	router := gin.Default()
 
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		v.RegisterValidation("currency", validCurrency)
+	}
+
+	// accounts specific handler bindings
 	router.POST("/accounts", server.CreateAccount)
 	router.GET("/accounts/:id", server.GeAccount)
 	router.GET("/accounts", server.GeAccounts)
+
+	// routes for transfers object
+	router.POST("/transfers", server.TransferAmount)
 
 	server.router = router
 
