@@ -105,11 +105,9 @@ func TestGetAccount(t *testing.T) {
 		})
 
 	}
-
 }
 
 func requireBodyMatchAccount(t *testing.T, buf *bytes.Buffer, want db.Account) {
-
 	t.Helper()
 	bytes, err := io.ReadAll(buf)
 	require.NoError(t, err)

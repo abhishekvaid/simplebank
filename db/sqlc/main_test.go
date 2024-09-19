@@ -19,10 +19,14 @@ func TestMain(m *testing.M) {
 		log.Fatal("can't load config", err)
 	}
 
-	testDB, err = sql.Open(config.DBDriver, config.DBSource)
+	testDB, err = sql.Open(config.DriverName, config.DriverSource)
+
 	if err != nil {
 		log.Fatal("cannot connect to DB. Exiting ... ", err)
 	}
+
 	testQueries = New(testDB)
+
 	m.Run()
+
 }

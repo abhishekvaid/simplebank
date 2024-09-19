@@ -19,14 +19,14 @@ INSERT INTO users (
 RETURNING username, hashed_password, full_name, email, password_changed_at, created_at
 `
 
-type GetUserParams struct {
+type CreateUserParams struct {
 	Username       string `json:"username"`
 	HashedPassword string `json:"hashed_password"`
 	FullName       string `json:"full_name"`
 	Email          string `json:"email"`
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg GetUserParams) (User, error) {
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRowContext(ctx, createUser,
 		arg.Username,
 		arg.HashedPassword,

@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 
 	"himavisoft.simple_bank/api"
@@ -16,13 +15,11 @@ func main() {
 
 	config, err := util.LoadConfig("./")
 
-	fmt.Println(config)
-
 	if err != nil {
 		log.Fatal("can't read config. exiting ...", err)
 	}
 
-	conn, err := sql.Open(config.DBDriver, config.DBSource)
+	conn, err := sql.Open(config.DriverName, config.DriverSource)
 	if err != nil {
 		log.Fatal("Can't connect to DB, exiting ...", err)
 	}
