@@ -5,37 +5,57 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
 	db "himavisoft.simple_bank/db/sqlc"
+	"himavisoft.simple_bank/token"
+	"himavisoft.simple_bank/util"
 )
 
 type Server struct {
-	store  db.Store
-	router *gin.Engine
+	config     util.Config
+	tokenMaker token.Maker
+	store      db.Store
+	router     *gin.Engine
 }
 
-func NewServer(store db.Store) (server *Server) {
+func NewServer(config util.Config, store db.Store) (server *Server, err error) {
 
-	server = &Server{store: store}
-	router := gin.Default()
+	tokenMaker, err := token.NewPaseto(config.TokenSecret)
+	if err != nil {
+		return
+	}
+
+	server = &Server{store: store, tokenMaker: tokenMaker, config: config}
+	server.setupRoutes()
 
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		v.RegisterValidation("currency", validCurrency)
 	}
 
+	return
+}
+
+func (server *Server) setupRoutes() {
+
+	router := gin.Default()
+
+	// routes for users (they don't use auth)
+	router.POST("/users", server.CreateUser)
+	router.POST("/users/login", server.CreateUser)
+
+	authRoutes := router.Group("/").Use(authMiddleware(server.tokenMaker))
+
+	// routes for User
+	authRoutes.GET("/users", server.GetUser)
+
 	// routes for accounts
-	router.POST("/accounts", server.CreateAccount)
-	router.GET("/accounts/:id", server.GeAccount)
-	router.GET("/accounts", server.GeAccounts)
+	authRoutes.POST("/accounts", server.CreateAccount)
+	authRoutes.GET("/accounts/:id", server.GetAccount)
+	authRoutes.GET("/accounts", server.ListAccounts)
 
 	// routes for transfers
-	router.POST("/transfers", server.TransferAmount)
-
-	// routes for users
-	router.POST("/users", server.CreateUser)
-	router.GET("/users/:username", server.GetUser)
+	authRoutes.POST("/transfers", server.TransferAmount)
 
 	server.router = router
 
-	return
 }
 
 func (s *Server) Start(address string) error {

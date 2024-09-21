@@ -2,7 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
+	"os"
 
 	"himavisoft.simple_bank/api"
 	db "himavisoft.simple_bank/db/sqlc"
@@ -26,7 +28,11 @@ func main() {
 
 	store := db.NewStore(conn)
 
-	server := api.NewServer(store)
+	server, err := api.NewServer(config, store)
+	if err != nil {
+		fmt.Println("can't start the server", err)
+		os.Exit(1)
+	}
 
 	server.Start(config.ServerAddress)
 

@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -14,6 +15,12 @@ import (
 	_ "github.com/lib/pq"
 )
 
+var (
+	ErrLoginCreds    = errors.New("wrong login creds")
+	ErrUserNotFound  = errors.New("username doesn't exist")
+	ErrWrongPassword = errors.New("password doesn't match")
+)
+
 type createUserRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required,min=6"`
@@ -21,34 +28,97 @@ type createUserRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 }
 
-type createUserResponse struct {
+// func createUserResponse(user db.User)
+
+type userResponse struct {
 	Username          string    `json:"username"`
-	HashedPassword    string    `json:"-"`
 	FullName          string    `json:"full_name"`
 	Email             string    `json:"email"`
 	PasswordChangedAt time.Time `json:"password_changed_at"`
 	CreatedAt         time.Time `json:"created_at"`
 }
 
-func (s *Server) CreateUser(ctx *gin.Context) {
+type loginParams struct {
+	Username string `json:"username" binding:"required,min=1"`
+	Password string `json:"password" binding:"required,min=1"`
+}
 
-	var reqDTO createUserRequest
+type loginResponse struct {
+	Token string       `json:"token"`
+	User  userResponse `json:"user"`
+}
 
-	if err := ctx.ShouldBindBodyWithJSON(&reqDTO); err != nil {
+func createUserResponse(user db.User) *userResponse {
+	return &userResponse{
+		Username:          user.Username,
+		FullName:          user.FullName,
+		Email:             user.Email,
+		PasswordChangedAt: user.PasswordChangedAt,
+		CreatedAt:         user.CreatedAt,
+	}
+}
+
+func createLoginResponse(user db.User, token string) *loginResponse {
+	return &loginResponse{
+		Token: token,
+		User:  *createUserResponse(user),
+	}
+}
+
+func (s *Server) Login(ctx *gin.Context) {
+
+	loginParams := loginParams{}
+
+	if err := ctx.ShouldBindQuery(&loginParams); err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
 
-	hashedPassword, err := util.HashPassword(reqDTO.Password)
+	user, err := s.store.GetUser(ctx, loginParams.Username)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, errorResponse(ErrUserNotFound))
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	err = util.CheckPassword(loginParams.Password, user.HashedPassword)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, errorResponse(ErrWrongPassword))
+		return
+	}
+
+	token, err := s.tokenMaker.Create(loginParams.Username, s.config.TokenExpiry)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, createLoginResponse(user, token))
+
+}
+
+func (s *Server) CreateUser(ctx *gin.Context) {
+
+	var req createUserRequest
+
+	if err := ctx.ShouldBindBodyWithJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	hashedPassword, err := util.HashPassword(req.Password)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(fmt.Errorf("cannot generate hash of the password provided")))
 	}
 
 	arg := db.CreateUserParams{
-		Username:       reqDTO.Username,
+		Username:       req.Username,
 		HashedPassword: hashedPassword,
-		FullName:       reqDTO.FullName,
-		Email:          reqDTO.Email,
+		FullName:       req.FullName,
+		Email:          req.Email,
 	}
 
 	user, err := s.store.CreateUser(ctx, arg)
@@ -70,18 +140,8 @@ func (s *Server) CreateUser(ctx *gin.Context) {
 
 func (s *Server) GetUser(ctx *gin.Context) {
 
-	type GetUserDTO struct {
-		Username string `uri:"username" binding:"required"`
-	}
-
-	var reqDTO GetUserDTO
-
-	if err := ctx.ShouldBindUri(&reqDTO); err != nil {
-		ctx.JSON(http.StatusBadRequest, errorResponse(err))
-		return
-	}
-
-	user, err := s.store.GetUser(ctx, reqDTO.Username)
+	username := ctx.GetString(authorizedUserId)
+	user, err := s.store.GetUser(ctx, username)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))

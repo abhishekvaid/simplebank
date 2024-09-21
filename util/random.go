@@ -43,3 +43,7 @@ func RandomCurrency() string {
 	currencies := []string{"USD", "CAD", "INR"}
 	return currencies[RandomInt(0, len(currencies))]
 }
+
+func RandomUsername(length int) string {
+	return RandomString(10) + "__username"
+}

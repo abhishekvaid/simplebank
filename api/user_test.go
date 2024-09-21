@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/lib/pq"
@@ -75,7 +76,7 @@ func TestCreateUser(t *testing.T) {
 			},
 			checkConditions: func(t *testing.T, respRecorder *httptest.ResponseRecorder) {
 				require.Equal(t, respRecorder.Code, http.StatusOK)
-				util.RequireBodyMatch(t, respRecorder.Body, db.User{})
+				util.MatchResponseBodyWith(t, respRecorder.Body, db.User{})
 			},
 		},
 		{
@@ -89,7 +90,7 @@ func TestCreateUser(t *testing.T) {
 			},
 			checkConditions: func(t *testing.T, respRecorder *httptest.ResponseRecorder) {
 				require.Equal(t, respRecorder.Code, http.StatusForbidden)
-				util.RequireBodyMatch(t, respRecorder.Body, errorResponse(constraintErr))
+				util.MatchResponseBodyWith(t, respRecorder.Body, errorResponse(constraintErr))
 			},
 		},
 		{
@@ -103,7 +104,7 @@ func TestCreateUser(t *testing.T) {
 			},
 			checkConditions: func(t *testing.T, respRecorder *httptest.ResponseRecorder) {
 				require.Equal(t, respRecorder.Code, http.StatusInternalServerError)
-				util.RequireBodyMatch(t, respRecorder.Body, errorResponse(randomErr))
+				util.MatchResponseBodyWith(t, respRecorder.Body, errorResponse(randomErr))
 			},
 		},
 	}
@@ -118,7 +119,7 @@ func TestCreateUser(t *testing.T) {
 			defer ctrl.Finish()
 
 			mockStore := mockdb.NewMockStore(ctrl)
-			server := NewServer(mockStore)
+			server := newTestServer(t, mockStore)
 
 			testcase.setupStub(mockStore)
 
@@ -136,6 +137,84 @@ func TestCreateUser(t *testing.T) {
 		})
 	}
 
+}
+
+func TestGetUser(t *testing.T) {
+
+	user := randomUser(t)
+
+	testcases := []struct {
+		name           string
+		prepareRequest func(t *testing.T, server *Server, req *http.Request)
+		setupStubs     func(t *testing.T, m *mockdb.MockStore)
+		checkResponse  func(t *testing.T, recorder *httptest.ResponseRecorder)
+	}{
+		{
+			name: "401 No Token Sent",
+			prepareRequest: func(t *testing.T, server *Server, req *http.Request) {
+				// don't setup any token
+			},
+			setupStubs: func(t *testing.T, m *mockdb.MockStore) {
+				m.EXPECT().GetUser(gomock.Any(), gomock.Any()).Times(0)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, recorder.Code, http.StatusUnauthorized)
+				util.CompareResponseBodyJSON(t, recorder, errorResponse(ErrAuthNoHeader))
+			},
+		},
+		{
+			name: "200 Ok",
+			prepareRequest: func(t *testing.T, server *Server, req *http.Request) {
+				setupToken(t, server, req, user.Username, time.Minute)
+			},
+			setupStubs: func(t *testing.T, m *mockdb.MockStore) {
+				m.EXPECT().GetUser(gomock.Any(), user.Username).Times(1).Return(*user, nil)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				util.CompareResponseBodyJSON(t, recorder, user)
+			},
+		},
+	}
+
+	for _, testcase := range testcases {
+
+		t.Run(testcase.name, func(t *testing.T) {
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockStore := mockdb.NewMockStore(ctrl)
+			server := newTestServer(t, mockStore)
+
+			req, err := http.NewRequest(http.MethodGet, "/users", nil)
+			require.NoError(t, err)
+
+			responseRecorder := httptest.NewRecorder()
+
+			testcase.prepareRequest(t, server, req)
+			testcase.setupStubs(t, mockStore)
+
+			server.router.ServeHTTP(responseRecorder, req)
+
+			testcase.checkResponse(t, responseRecorder)
+
+		})
+	}
+
+}
+
+func randomUser(t *testing.T) *db.User {
+	hashedPassword, err := util.HashPassword("secret")
+	require.NoError(t, err)
+	return &db.User{
+		Username:          util.RandomUsername(10),
+		HashedPassword:    hashedPassword,
+		FullName:          util.RandomString(10),
+		Email:             util.RandomEmail(),
+		PasswordChangedAt: time.Now(),
+		CreatedAt:         time.Now(),
+	}
 }
 
 func randomCreateUserRequest() *createUserRequest {

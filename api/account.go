@@ -12,19 +12,33 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func (s *Server) GeAccount(ctx *gin.Context) {
-	type GetAccountParams struct {
-		ID int32 `uri:"id" binding:"required"`
-	}
+type getAccountRequest struct {
+	ID int32 `uri:"id" binding:"required"`
+}
 
-	q := GetAccountParams{}
+type listAccountRequest struct {
+	PageOffset int32 `form:"page_offset" binding:"required,min=1"`
+	PageSize   int32 `form:"page_size" binding:"required,min=1,max=20"`
+}
 
-	if err := ctx.BindUri(&q); err != nil {
+type createAccountRequest struct {
+	Currency string `json:"currency" binding:"required,currency"`
+}
+
+func (s *Server) GetAccount(ctx *gin.Context) {
+
+	req := getAccountRequest{}
+	if err := ctx.BindUri(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
 
-	account, err := s.store.GetAccount(ctx, int64(q.ID))
+	arg := db.GetAccountParams{
+		ID:    int64(req.ID),
+		Owner: ctx.GetString(authorizedUserId),
+	}
+
+	account, err := s.store.GetAccount(ctx, arg)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
@@ -38,25 +52,19 @@ func (s *Server) GeAccount(ctx *gin.Context) {
 
 }
 
-func (s *Server) GeAccounts(ctx *gin.Context) {
-	type GetAccountsParams struct {
-		PageOffset int32 `form:"page_offset" binding:"required,min=1"`
-		PageSize   int32 `form:"page_size" binding:"required,min=1,max=20"`
-	}
+func (s *Server) ListAccounts(ctx *gin.Context) {
 
-	params := GetAccountsParams{}
-
-	if err := ctx.BindQuery(&params); err != nil {
+	req := listAccountRequest{}
+	if err := ctx.BindQuery(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
-
-	arg := db.GetAccountsParams{
-		Limit:  params.PageSize,
-		Offset: params.PageOffset,
+	arg := db.ListAccountsParams{
+		Owner:  ctx.GetHeader(authorizedUserId),
+		Limit:  req.PageSize,
+		Offset: req.PageOffset,
 	}
-
-	account, err := s.store.GetAccounts(ctx, arg)
+	account, err := s.store.ListAccounts(ctx, arg)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
@@ -72,22 +80,17 @@ func (s *Server) GeAccounts(ctx *gin.Context) {
 
 func (s *Server) CreateAccount(ctx *gin.Context) {
 
-	type CreateContextParams struct {
-		Owner    string `json:"owner" binding:"required"`
-		Currency string `json:"currency" binding:"required,currency"`
-	}
+	req := createAccountRequest{}
 
-	var reqDto CreateContextParams
-
-	if err := ctx.ShouldBindBodyWithJSON(&reqDto); err != nil {
+	if err := ctx.ShouldBindBodyWithJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
 
 	arg := db.CreateAccountParams{
-		Owner:    reqDto.Owner,
+		Owner:    ctx.GetHeader(authorizedUserId),
 		Balance:  0,
-		Currency: reqDto.Currency,
+		Currency: req.Currency,
 	}
 
 	account, err := s.store.CreateAccount(ctx, arg)

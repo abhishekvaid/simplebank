@@ -50,9 +50,11 @@ func (s *SQLStore) execTx(ctx context.Context, callback func(*Queries) error) er
 }
 
 type TransferTxParams struct {
-	FromAccountId int64 `json:"from_account_id"`
-	ToAccountId   int64 `json:"to_account_id"`
-	Amount        int64 `json:"amount"`
+	FromAccountId    int64  `json:"from_account_id"`
+	FromAccountOwner string `json:"from_account_owner"`
+	ToAccountId      int64  `json:"to_account_id"`
+	ToAccountOwner   string `json:"to_account_owner"`
+	Amount           int64  `json:"amount"`
 }
 
 type TransferTxResults struct {
@@ -99,20 +101,20 @@ func (s *SQLStore) TransferTx(ctx context.Context, arg TransferTxParams) (Transf
 		}
 
 		if arg.FromAccountId < arg.ToAccountId {
-			r.FromAccount, err = addAccountBalanceHelper(ctx, q, arg.FromAccountId, -arg.Amount)
+			r.FromAccount, err = addAccountBalanceHelper(ctx, q, arg.FromAccountId, -arg.Amount, arg.FromAccountOwner)
 			if err != nil {
 				return err
 			}
-			r.ToAccount, err = addAccountBalanceHelper(ctx, q, arg.ToAccountId, arg.Amount)
+			r.ToAccount, err = addAccountBalanceHelper(ctx, q, arg.ToAccountId, arg.Amount, arg.ToAccountOwner)
 			if err != nil {
 				return err
 			}
 		} else {
-			r.ToAccount, err = addAccountBalanceHelper(ctx, q, arg.ToAccountId, arg.Amount)
+			r.ToAccount, err = addAccountBalanceHelper(ctx, q, arg.ToAccountId, arg.Amount, arg.ToAccountOwner)
 			if err != nil {
 				return err
 			}
-			r.FromAccount, err = addAccountBalanceHelper(ctx, q, arg.FromAccountId, -arg.Amount)
+			r.FromAccount, err = addAccountBalanceHelper(ctx, q, arg.FromAccountId, -arg.Amount, arg.FromAccountOwner)
 			if err != nil {
 				return err
 			}
@@ -123,10 +125,11 @@ func (s *SQLStore) TransferTx(ctx context.Context, arg TransferTxParams) (Transf
 	return r, err
 }
 
-func addAccountBalanceHelper(ctx context.Context, q *Queries, accId, amount int64) (acc Account, err error) {
+func addAccountBalanceHelper(ctx context.Context, q *Queries, accId, amount int64, owner string) (acc Account, err error) {
 	acc, err = q.AddAccountBalance(ctx, AddAccountBalanceParams{
 		Amount: amount,
 		ID:     accId,
+		Owner:  owner,
 	})
 	if err != nil {
 		return

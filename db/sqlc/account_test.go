@@ -17,7 +17,7 @@ func createTestAccount(t *testing.T) Account {
 
 	arg := CreateAccountParams{
 		Owner:    user.Username,
-		Balance:  100, // util.RandomBalance(),
+		Balance:  100,
 		Currency: util.RandomCurrency(),
 	}
 
@@ -45,50 +45,48 @@ func TestCreateAccount(t *testing.T) {
 func TestGetAccount(t *testing.T) {
 	acc1 := createTestAccount(t)
 
-	acc2, err := testQueries.GetAccount(context.Background(), acc1.ID)
+	arg := GetAccountParams{
+		ID:    acc1.ID,
+		Owner: acc1.Owner,
+	}
+
+	acc2, err := testQueries.GetAccount(context.Background(), arg)
 
 	require.NoError(t, err)
 	require.NotEmpty(t, acc2)
 
 	require.EqualValues(t, acc1, acc2)
-
-}
-
-func TestGetAccounts(t *testing.T) {
-	for i := 0; i < 5; i++ {
-		createTestAccount(t)
-	}
-
-	arg := GetAccountsParams{
-		Limit:  4,
-		Offset: 0,
-	}
-
-	accounts, err := testQueries.GetAccounts(context.Background(), arg)
-
-	require.NoError(t, err)
-	require.Len(t, accounts, 4)
-
 }
 
 func TestDeleteAccount(t *testing.T) {
+
 	acc1 := createTestAccount(t)
 
-	err := testQueries.DeleteAccount(context.Background(), acc1.ID)
+	arg := DeleteAccountParams{
+		ID:    acc1.ID,
+		Owner: acc1.Owner,
+	}
+
+	err := testQueries.DeleteAccount(context.Background(), arg)
 	require.NoError(t, err)
 
-	acc2, err := testQueries.GetAccount(context.Background(), acc1.ID)
+	acc2, err := testQueries.GetAccount(context.Background(), GetAccountParams{
+		ID:    acc1.ID,
+		Owner: acc1.Owner,
+	})
 	require.Error(t, err)
 	require.EqualError(t, err, sql.ErrNoRows.Error())
 	require.Empty(t, acc2)
 }
 
 func TestUpdateAccount(t *testing.T) {
+
 	acc1 := createTestAccount(t)
 
 	arg := UpdateAccountParams{
 		ID:      acc1.ID,
 		Balance: acc1.Balance + 100,
+		Owner:   acc1.Owner,
 	}
 
 	acc2, err := testQueries.UpdateAccount(context.Background(), arg)
@@ -110,6 +108,7 @@ func TestAccountToUserForeignKey(t *testing.T) {
 	arg := UpdateAccountParams{
 		ID:      acc1.ID,
 		Balance: acc1.Balance + 100,
+		Owner:   acc1.Owner,
 	}
 
 	acc2, err := testQueries.UpdateAccount(context.Background(), arg)
