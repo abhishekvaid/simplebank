@@ -69,7 +69,7 @@ func (s *Server) Login(ctx *gin.Context) {
 
 	loginParams := loginParams{}
 
-	if err := ctx.ShouldBindQuery(&loginParams); err != nil {
+	if err := ctx.ShouldBindBodyWithJSON(&loginParams); err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}

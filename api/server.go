@@ -1,6 +1,8 @@
 package api
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
@@ -37,9 +39,11 @@ func (server *Server) setupRoutes() {
 
 	router := gin.Default()
 
+	router.GET("/health", func(ctx *gin.Context) { ctx.JSON(http.StatusOK, gin.H{"msg": "Hi"}) })
+
 	// routes for users (they don't use auth)
 	router.POST("/users", server.CreateUser)
-	router.POST("/users/login", server.CreateUser)
+	router.POST("/users/login", server.Login)
 
 	authRoutes := router.Group("/").Use(authMiddleware(server.tokenMaker))
 
