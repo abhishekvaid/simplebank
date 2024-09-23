@@ -25,7 +25,7 @@ sqlc:
 	sqlc generate 
 
 test:
- go test -count=1 ./...
+ 	go test -count=1 ./...
 
 server:
 	go run main.go 
