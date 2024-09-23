@@ -19,6 +19,9 @@ jobs:
       - name: Checkout Code into runner
         uses: actions/checkout@v4
 
+      - name: Modify app.env from AWS SecretsManager
+        run: aws secretsmanager get-secret-value --secret-id simple_bank | jq -r '.SecretString|fromjson|to_entries|.[]|"\(.key)=\(.value)"' > app.env
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
