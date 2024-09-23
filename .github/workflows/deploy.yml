@@ -11,6 +11,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    permissions:
+      id-token: write # Required for OIDC token access
+      contents: read
+
     steps:
       - name: Checkout Code into runner
         uses: actions/checkout@v4
