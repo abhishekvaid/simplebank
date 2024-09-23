@@ -13,6 +13,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    env:
+      SIMPLE_BANK_DB_URL: "postgres://root:secret@localhost:5432/simple_bank?sslmode=disable"
+
     services:
       postgres:
         image: postgres:14-alpine
