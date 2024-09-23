@@ -1,4 +1,4 @@
-DB_URL := $(SIMPLE_BANK_DB_URL)
+DB_URL := $(DRIVER_SOURCE)
 
 postgres:
 	docker run --name simplebank_pg -p 5432:5432 --network simplebank_network -e POSTGRES_PASSWORD=secret -e POSTGRES_USER=root -d postgres:12-alpine
@@ -25,7 +25,7 @@ sqlc:
 	sqlc generate 
 
 test:
-	go test -count=1 ./...
+ go test -count=1 ./...
 
 server:
 	go run main.go 
