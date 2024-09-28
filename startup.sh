@@ -6,9 +6,8 @@ echo "Starting the application..."
 
 echo "Sourcing app.env" 
 source app.env 
-echo "$DRIVER_SOURCE"
 
-echo "Running Migration"
+echo "Initiating Migration"
 migrate -path=db/migration -database=$DRIVER_SOURCE up
 
 exec "$@" # hand over the execution to command passed, In our case, ./app/simple_bank app 

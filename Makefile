@@ -1,37 +1,46 @@
-DB_URL := $(DRIVER_SOURCE)
+include app.env
+
+# Detect if running on macOS
+ifeq ($(shell uname), Darwin)
+    DRIVER_SOURCE = postgres://root:secret@localhost:5432/simple_bank?sslmode=disable
+endif
+
+# Default target
+all:
+	@echo "Using DB_URL: $(DB_URL)"
 
 postgres:
-	docker run --name simplebank_pg -p 5432:5432 --network simplebank_network -e POSTGRES_PASSWORD=secret -e POSTGRES_USER=root -d postgres:12-alpine
+	docker run --name pg_simplebank -p 5432:5432 -e POSTGRES_PASSWORD=secret -e POSTGRES_USER=root -d postgres
 
 createdb:
-	docker exec simplebank_pg createdb --owner=root --username=root simple_bank
+	docker exec pg_simplebank createdb --owner=root --username=root simple_bank
 
 dropdb:
-	docker exec simplebank_pg dropdb simple_bank
+	docker exec pg_simplebank dropdb simple_bank
 
 migrateup:
-	migrate -path=db/migration -database="$(DB_URL)" up 
+	migrate -path=db/migration -database="$(DRIVER_SOURCE)" up 
 
 migratedown:
-	 echo "y" | migrate -path=db/migration -database="$(DB_URL)" down
+	 echo "y" | migrate -path=db/migration -database="$(DRIVER_SOURCE)" down
 
 migrateup1:
-	migrate -path=db/migration -database="$(DB_URL)" up 1
+	migrate -path=db/migration -database="$(DRIVER_SOURCE)" up 1
 
 migratedown1:
-	 echo "y" | migrate -path=db/migration -database="$(DB_URL)" down 1
+	 echo "y" | migrate -path=db/migration -database="$(DRIVER_SOURCE)" down 1
 
 sqlc: 
 	sqlc generate 
 
-test:
- 	go test -count=1 ./...
+test: 
+	go test -count=1 ./...;
 
 server:
 	go run main.go 
 
 dockerrun:
-	docker start simplebank_app || docker run --name simplebank_app -p 8081:8081 --network simplebank_network -e DRIVER_SOURCE="postgres://root:secret@simplebank_pg:5432/simple_bank?sslmode=disable" -e SERVER_ADDRESS="0.0.0.0:8081" himavisoft/simplebank:latest
+	docker start app_simplebank || docker run --name app_simplebank -p 8081:8081 -e DRIVER_SOURCE="$(DRIVER_SOURCE)" himavisoft/simplebank:latest
 
 dockerbuild:
 	docker rmi himavisoft/simplebank:latest || true && docker build -t himavisoft/simplebank:latest .
