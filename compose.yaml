@@ -18,6 +18,4 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      - SERVER_ADDRESS=0.0.0.0:8081
-      - DRIVER_SOURCE=postgres://root:secret@postgres:5432/simple_bank?sslmode=disable
+q
