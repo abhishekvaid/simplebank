@@ -1,13 +1,6 @@
 include app.env
 
-# Detect if running on macOS
-ifeq ($(shell uname), Darwin)
-    DRIVER_SOURCE = postgres://root:secret@localhost:5432/simple_bank?sslmode=disable
-endif
-
-# Default target
-all:
-	@echo "Using DB_URL: $(DB_URL)"
+DRIVER_SOURCE := $(if $(DRIVER_SOURCE_OVERRIDE),$(DRIVER_SOURCE_OVERRIDE),$(DRIVER_SOURCE))
 
 postgres:
 	docker run --name pg_simplebank -p 5432:5432 -e POSTGRES_PASSWORD=secret -e POSTGRES_USER=root -d postgres
