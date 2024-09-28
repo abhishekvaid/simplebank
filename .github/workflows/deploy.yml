@@ -11,9 +11,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    permissions:
-      id-token: write # Required for OIDC token access
-      contents: read
+    # permissions:
+    #   id-token: write # Required for OIDC token access
+    #   contents: read
 
     steps:
       - name: Checkout Code into runner
@@ -25,7 +25,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::295952938604:role/github-oidc
+          role-to-assume: arn:aws:iam::442426856140:role/ci-deployment
           aws-region: us-east-1
 
       - name: Login to Amazon ECR
@@ -40,3 +40,7 @@ jobs:
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+
+
+          aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin 295952938604.dkr.ecr.us-east-1.amazonaws.com/himavisoft/simplebank:141e7a23a96d2a1f1699d719e6c1fcad2def7072
