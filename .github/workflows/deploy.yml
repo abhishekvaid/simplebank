@@ -21,12 +21,14 @@ jobs:
 
       - name: Modify app.env from AWS SecretsManager
         run: aws secretsmanager get-secret-value --secret-id simple_bank | jq -r '.SecretString|fromjson|to_entries|.[]|"\(.key)=\(.value)"' > app.env
-
+        
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::442426856140:role/ci-deployment
           aws-region: us-east-1
+          role-session-name: GitHubActionsSession
+          audience: sts.amazonaws.com
 
       - name: Login to Amazon ECR
         id: login-ecr
