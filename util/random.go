@@ -45,5 +45,5 @@ func RandomCurrency() string {
 }
 
 func RandomUsername(length int) string {
-	return RandomString(10) + "__username"
+	return RandomString(10) //+ "__username"
 }

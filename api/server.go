@@ -12,13 +12,13 @@ import (
 )
 
 type Server struct {
-	config     util.Config
+	config     *util.Config
 	tokenMaker token.Maker
 	store      db.Store
 	router     *gin.Engine
 }
 
-func NewServer(config util.Config, store db.Store) (server *Server, err error) {
+func NewServer(config *util.Config, store db.Store) (server *Server, err error) {
 
 	tokenMaker, err := token.NewPaseto(config.TokenSecret)
 	if err != nil {
@@ -44,6 +44,7 @@ func (server *Server) setupRoutes() {
 	// routes for users (they don't use auth)
 	router.POST("/users", server.CreateUser)
 	router.POST("/users/login", server.Login)
+	// router.POST("/users/refresh_token", server.RefreshToken)
 
 	authRoutes := router.Group("/").Use(authMiddleware(server.tokenMaker))
 

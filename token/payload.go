@@ -15,8 +15,6 @@ type Payload struct {
 	Issuer    string    `json:"issuer"`
 }
 
-var ()
-
 var x jwt.StandardClaims = jwt.StandardClaims{}
 
 func (p *Payload) Valid() error {

@@ -15,8 +15,9 @@ import (
 
 func setupAuthInReq(t *testing.T, maker token.Maker, expiryDuration time.Duration, request *http.Request, username, authorizationHeaderKey string) {
 
-	token, err := maker.Create(username, expiryDuration)
+	token, payload, err := maker.Create(username, expiryDuration)
 	require.NoError(t, err)
+	require.NotEmpty(t, payload)
 	request.Header.Set(authorizationHeaderKey, fmt.Sprintf("%s %s", authorizationType, token))
 }
 

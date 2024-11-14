@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	db "himavisoft.simple_bank/db/sqlc"
 	"himavisoft.simple_bank/util"
 
-	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
 
@@ -22,13 +22,11 @@ var (
 )
 
 type createUserRequest struct {
-	Username string `json:"username" binding:"required"`
+	Username string `json:"username" binding:"required,alphanum"`
 	Password string `json:"password" binding:"required,min=6"`
 	FullName string `json:"full_name" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
 }
-
-// func createUserResponse(user db.User)
 
 type userResponse struct {
 	Username          string    `json:"username"`
@@ -39,30 +37,17 @@ type userResponse struct {
 }
 
 type loginParams struct {
-	Username string `json:"username" binding:"required,min=1"`
+	Username string `json:"username" binding:"required,min=1,alphanum"`
 	Password string `json:"password" binding:"required,min=1"`
 }
 
 type loginResponse struct {
-	Token string       `json:"token"`
-	User  userResponse `json:"user"`
-}
-
-func createUserResponse(user db.User) *userResponse {
-	return &userResponse{
-		Username:          user.Username,
-		FullName:          user.FullName,
-		Email:             user.Email,
-		PasswordChangedAt: user.PasswordChangedAt,
-		CreatedAt:         user.CreatedAt,
-	}
-}
-
-func createLoginResponse(user db.User, token string) *loginResponse {
-	return &loginResponse{
-		Token: token,
-		User:  *createUserResponse(user),
-	}
+	SessionID          uuid.UUID    `json:"session_id"`
+	AccessToken        string       `json:"access_token"`
+	AccessTokenExpiry  time.Time    `json:"access_token_expiry"`
+	RefreshToken       string       `json:"refresh_token"`
+	RefreshTokenExpiry time.Time    `json:"refresh_token_expiry"`
+	User               userResponse `json:"user"`
 }
 
 func (s *Server) Login(ctx *gin.Context) {
@@ -76,8 +61,8 @@ func (s *Server) Login(ctx *gin.Context) {
 
 	user, err := s.store.GetUser(ctx, loginParams.Username)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			ctx.JSON(http.StatusNotFound, errorResponse(ErrUserNotFound))
+		if errors.Is(err, db.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, errorResponse(err))
 			return
 		}
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
@@ -90,15 +75,100 @@ func (s *Server) Login(ctx *gin.Context) {
 		return
 	}
 
-	token, err := s.tokenMaker.Create(loginParams.Username, s.config.TokenExpiry)
+	accessToken, accessTokenPayload, err := s.tokenMaker.Create(loginParams.Username, s.config.TokenExpiry)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
 
-	ctx.JSON(http.StatusOK, createLoginResponse(user, token))
+	refreshToken, refreshTokenPayload, err := s.tokenMaker.Create(loginParams.Username, s.config.RefreshTokenExpiry)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	session, err := s.store.CreateSession(ctx, db.CreateSessionParams{
+		ID:           refreshTokenPayload.ID,
+		Username:     accessTokenPayload.Username,
+		RefreshToken: refreshToken,
+		UserAgent:    ctx.Request.UserAgent(),
+		ClientIp:     ctx.Request.RemoteAddr,
+		IsBlocked:    false,
+		ExpireAt:     time.Time{},
+	})
+
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, loginResponse{
+		SessionID:          session.ID,
+		AccessToken:        accessToken,
+		AccessTokenExpiry:  accessTokenPayload.ExpiredAt,
+		RefreshToken:       refreshToken,
+		RefreshTokenExpiry: refreshTokenPayload.ExpiredAt,
+		User: userResponse{
+			Username:          user.Username,
+			FullName:          user.FullName,
+			Email:             user.Email,
+			PasswordChangedAt: user.PasswordChangedAt,
+			CreatedAt:         user.CreatedAt,
+		},
+	})
 
 }
+
+// func (s *Server) RefreshToken(ctx *gin.Context) {
+
+// 	loginParams := loginParams{}
+
+// 	if err := ctx.ShouldBindBodyWithJSON(&loginParams); err != nil {
+// 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+// 		return
+// 	}
+
+// 	user, err := s.store.GetUser(ctx, loginParams.Username)
+// 	if err != nil {
+// 		if err == sql.ErrNoRows {
+// 			ctx.JSON(http.StatusNotFound, errorResponse(ErrUserNotFound))
+// 			return
+// 		}
+// 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+// 		return
+// 	}
+
+// 	err = util.CheckPassword(loginParams.Password, user.HashedPassword)
+// 	if err != nil {
+// 		ctx.JSON(http.StatusUnauthorized, errorResponse(ErrWrongPassword))
+// 		return
+// 	}
+
+// 	accessToken, accessTokenPayload, err := s.tokenMaker.Create(loginParams.Username, s.config.TokenExpiry)
+// 	if err != nil {
+// 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+// 		return
+// 	}
+
+// 	refreshToken, refreshTokenPayload, err := s.tokenMaker.Create(loginParams.Username, s.config.RefreshTokenExpiry)
+// 	if err != nil {
+// 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+// 		return
+// 	}
+
+// 	s.store.CreateSession(ctx, db.CreateSessionParams{
+// 		ID:           refreshTokenPayload.ID,
+// 		Username:     accessTokenPayload.Username,
+// 		RefreshToken: refreshToken,
+// 		UserAgent:    ctx.Request.UserAgent(),
+// 		ClientIp:     ctx.Request.RemoteAddr,
+// 		IsBlocked:    false,
+// 		ExpireAt:     time.Time{},
+// 	})
+
+// 	ctx.JSON(http.StatusOK, createLoginResponse(user, accessToken))
+
+// }
 
 func (s *Server) CreateUser(ctx *gin.Context) {
 
@@ -121,20 +191,36 @@ func (s *Server) CreateUser(ctx *gin.Context) {
 		Email:          req.Email,
 	}
 
+	// user, err := s.store.CreateUser(ctx, arg)
+	// if err != nil {
+	// 	if pqErr, ok := err.(*pq.Error); ok {
+	// 		switch pqErr.Code.Name() {
+	// 		case "unique_violation":
+	// 			ctx.JSON(http.StatusForbidden, errorResponse(err))
+	// 			return
+	// 		}
+	// 	}
+	// 	ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+	// 	return
+	// }
+
 	user, err := s.store.CreateUser(ctx, arg)
 	if err != nil {
-		if pqErr, ok := err.(*pq.Error); ok {
-			switch pqErr.Code.Name() {
-			case "unique_violation":
-				ctx.JSON(http.StatusForbidden, errorResponse(err))
-				return
-			}
+		if db.ErrorCode(err) == db.UniqueViolation {
+			ctx.JSON(http.StatusForbidden, errorResponse(err))
+			return
 		}
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
 
-	ctx.JSON(http.StatusOK, createUserResponse(user))
+	ctx.JSON(http.StatusOK, userResponse{
+		Username:          user.Username,
+		FullName:          user.FullName,
+		Email:             user.Email,
+		PasswordChangedAt: user.PasswordChangedAt,
+		CreatedAt:         user.CreatedAt,
+	})
 
 }
 

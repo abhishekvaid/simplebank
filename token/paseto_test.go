@@ -18,10 +18,11 @@ func TestPasetoCreate(t *testing.T) {
 
 	randomUsername := util.RandomString(10) + "__username"
 	randomDuration := time.Duration(util.RandomInt(100, 1000)) * time.Second
-	token, err := paseto.Create(randomUsername, randomDuration)
+	token, payload, err := paseto.Create(randomUsername, randomDuration)
 	require.NoError(t, err)
+	require.NotEmpty(t, payload)
 
-	payload, err := paseto.Verify(token)
+	payload, err = paseto.Verify(token)
 	require.NoError(t, err)
 
 	require.Equal(t, randomUsername, payload.Username)
@@ -39,10 +40,11 @@ func TestPasetoVerifyWithEmptyToken(t *testing.T) {
 
 	randomUsername := ""
 	randomDuration := time.Duration(util.RandomInt(100, 1000)) * time.Second
-	token, err := paseto.Create(randomUsername, randomDuration)
+	token, payload, err := paseto.Create(randomUsername, randomDuration)
 	require.NoError(t, err)
+	require.NotEmpty(t, payload)
 
-	payload, err := paseto.Verify(token)
+	payload, err = paseto.Verify(token)
 	require.NoError(t, err)
 
 	require.Equal(t, randomUsername, payload.Username)

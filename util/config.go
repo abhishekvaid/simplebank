@@ -7,14 +7,15 @@ import (
 )
 
 type Config struct {
-	DriverSource  string        `mapstructure:"driver_source"`
-	DriverName    string        `mapstructure:"driver_name"`
-	ServerAddress string        `mapstructure:"server_address"`
-	TokenSecret   string        `mapstructure:"token_secret"`
-	TokenExpiry   time.Duration `mapstructure:"token_expiry"`
+	DriverSource       string        `mapstructure:"driver_source"`
+	DriverName         string        `mapstructure:"driver_name"`
+	ServerAddress      string        `mapstructure:"server_address"`
+	TokenSecret        string        `mapstructure:"token_secret"`
+	TokenExpiry        time.Duration `mapstructure:"token_expiry"`
+	RefreshTokenExpiry time.Duration `mapstructure:"refresh_token_expiry"`
 }
 
-func LoadConfig(path string) (config Config, err error) {
+func LoadConfig(path string) (config *Config, err error) {
 
 	viper.AddConfigPath(path)
 	viper.SetConfigName("app")

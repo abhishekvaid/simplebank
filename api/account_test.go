@@ -20,8 +20,8 @@ import (
 
 func TestGetAccount(t *testing.T) {
 
-	user := randomUser(t)
-	account := randomAccount(user)
+	user, _ := randomUser(t)
+	account := randomAccount(&user)
 
 	testCases := []struct {
 		Name           string

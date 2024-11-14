@@ -23,14 +23,15 @@ func newTestServer(t *testing.T, store db.Store) *Server {
 		TokenExpiry: time.Minute,
 	}
 
-	server, err := NewServer(config, store)
+	server, err := NewServer(&config, store)
 	require.NoError(t, err)
 
 	return server
 }
 
 func setupToken(t *testing.T, server *Server, req *http.Request, username string, expiry time.Duration) {
-	token, err := server.tokenMaker.Create(username, expiry)
+	token, payload, err := server.tokenMaker.Create(username, expiry)
 	require.NoError(t, err)
+	require.NotEmpty(t, payload)
 	req.Header.Set(authorizationHeaderKey, fmt.Sprintf("%s %s", authorizationType, token))
 }

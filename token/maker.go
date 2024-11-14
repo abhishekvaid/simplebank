@@ -12,6 +12,6 @@ var (
 )
 
 type Maker interface {
-	Create(username string, duration time.Duration) (string, error)
+	Create(username string, duration time.Duration) (string, *Payload, error)
 	Verify(string) (*Payload, error)
 }

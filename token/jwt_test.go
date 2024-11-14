@@ -17,10 +17,11 @@ func TestJWTCreate(t *testing.T) {
 
 	randomUsername := util.RandomString(10) + "__username"
 	randomDuration := time.Duration(util.RandomInt(100, 1000)) * time.Second
-	token, err := jwtMaker.Create(randomUsername, randomDuration)
+	token, payload, err := jwtMaker.Create(randomUsername, randomDuration)
 	require.NoError(t, err)
+	require.NotEmpty(t, payload)
 
-	payload, err := jwtMaker.Verify(token)
+	payload, err = jwtMaker.Verify(token)
 	require.NoError(t, err)
 
 	require.Equal(t, randomUsername, payload.Username)
